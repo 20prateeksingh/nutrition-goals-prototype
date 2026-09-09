@@ -1,0 +1,405 @@
+/* ── Nutrition goals · prototype layer ────────────────────────────────────────
+   Namespaced ot-nx-* so nothing collides with the real production classes.
+   Binds to the captures' own --otkit-* tokens, with fallbacks, so new UI is
+   native rather than approximate. Motion follows skills/motion/SKILL.md.        */
+
+:root{
+  --nx-ink:      var(--otkit-color-foreground-default, #2d333f);
+  --nx-mut:      var(--otkit-color-foreground-secondary, #6f737b);
+  --nx-line:     var(--otkit-color-border-default, #d8d9db);
+  --nx-ground:   var(--otkit-color-background-secondary, #f1f2f4);
+  --nx-surface:  var(--otkit-color-background, #ffffff);
+  --nx-accent:   var(--otkit-color-foreground-default, #2d333f);
+  --nx-ease:     cubic-bezier(.22,.61,.36,1);
+}
+
+/* ── Tier 1 · feedback. Hover is the highest-frequency motion on any page, so
+      it is the quietest thing here: outline only — no lift, no scale, no fill.
+      outline is also the reliable escape hatch when a component library owns
+      box-shadow (motion §5).                                                   */
+.ot-nx-hoverable{ outline:1px solid transparent; outline-offset:2px;
+  transition:outline-color .12s var(--nx-ease); }
+.ot-nx-hoverable:hover{ outline-color:var(--nx-line); }
+.ot-nx-hoverable:focus-visible{ outline:2px solid var(--nx-accent); outline-offset:2px; }
+
+/* ── Tier 2 · orientation. ONE arrival language, reused everywhere, at item
+      granularity — never a bespoke entrance per widget.                        */
+.ot-nx-enter{ opacity:0; transform:translateY(8px); }
+.ot-nx-enter.is-in{ opacity:1; transform:none;
+  transition:opacity .34s var(--nx-ease), transform .34s var(--nx-ease); }
+
+/* ── Tier 3 · data motion. The meter reflects a real change, never a replay.   */
+.ot-nx-meter{ height:8px; border-radius:4px; background:var(--nx-line); overflow:hidden; }
+.ot-nx-meter > i{ display:block; height:100%; width:0; border-radius:4px;
+  background:var(--nx-accent); transition:width .5s var(--nx-ease); }
+/* ⛔ Over is INFORMATION, never failure: a hatch, never a colour flip. */
+.ot-nx-meter.is-over > i{
+  background:repeating-linear-gradient(45deg,var(--nx-mut) 0 4px,var(--nx-line) 4px 8px); }
+
+/* digit roll — only changed digits move, right-to-left (motion §3) */
+.ot-nx-roll{ display:inline-flex; }
+.ot-nx-roll span{ display:inline-block; }
+.ot-nx-roll span.is-rolling{ animation:ot-nx-rollup .34s var(--nx-ease); }
+.ot-nx-roll span.is-rolling-down{ animation:ot-nx-rolldown .34s var(--nx-ease); }
+@keyframes ot-nx-rollup{ from{ transform:translateY(.7em); opacity:0 } to{ transform:none; opacity:1 } }
+@keyframes ot-nx-rolldown{ from{ transform:translateY(-.7em); opacity:0 } to{ transform:none; opacity:1 } }
+
+/* ── modal: rises in the page's own arrival language, and retraces on exit.
+      Backdrop carries its FULL blur+tint constantly and animates opacity only. */
+.ot-nx-scrim{ position:fixed; inset:0; z-index:9000; opacity:0;
+  background:rgba(20,26,38,.55); backdrop-filter:blur(3px);
+  transition:opacity .24s var(--nx-ease); }
+.ot-nx-scrim.is-in{ opacity:1 }
+.ot-nx-panel{ position:fixed; z-index:9001; left:50%; top:32px; transform:translate(-50%,10px);
+  opacity:0; width:592px; max-width:calc(100vw - 48px);
+  background:var(--nx-surface); border-radius:8px; overflow:hidden;
+  transition:opacity .26s var(--nx-ease), transform .26s var(--nx-ease); }
+.ot-nx-panel.is-in{ opacity:1; transform:translate(-50%,0) }
+
+@media (prefers-reduced-motion: reduce){
+  .ot-nx-enter,.ot-nx-enter.is-in,.ot-nx-meter>i,.ot-nx-scrim,.ot-nx-panel{ transition:none!important }
+  .ot-nx-roll span{ animation:none!important }
+}
+
+/* ══ A2 · a CTA that would leave the prototype ════════════════════════════════
+   ⛔ CURSOR ONLY (open decision O3). No colour, no outline, no tooltip, no
+   disabled attribute. Two hover languages already collide on these pages
+   (prototypes.md, known limitation #2); a third VISUAL one would make the
+   worst thing about the prototype worse. The cursor is the one channel that
+   says "not here" without joining that argument — and it never renders into
+   a captured frame, so ?cap= is untouched.                                     */
+a[data-nx-dead], a[data-nx-dead] *{ cursor:not-allowed; }
+
+/* …and its positive counterpart, which was missing. Anything that DOES respond
+   has to say so with the cursor, or A2's not-allowed is only half a signal.
+   ⚠ The home page's third field is the case that showed it up: it is a
+   role="button" <div> wrapping text, and `cursor:auto` over text renders as an
+   I-beam — so the one new control in the search cluster looked like a text
+   field you could type into. Our own controls, every link that resolves to a
+   prototype screen, and the three wired non-link CTAs. */
+#ot-nx-goals, #ot-nx-goals *,
+[role="button"].ot-nx-hoverable, [role="button"].ot-nx-hoverable *,
+a[data-nx-live], a[data-nx-live] *,
+[data-nx-cta], [data-nx-cta] *{ cursor:pointer; }
+
+/* ══ A3 · dead-space click → one-shot flash of every LIVE CTA ═════════════════
+   ⛔ NEUTRAL. The harm list forbids red/green valence, and an affordance that
+   broke the rule this design argues for would be worse than no affordance —
+   so this is the same ink the focus ring already uses, at low alpha.
+   outline, not box-shadow: the host's own cards own box-shadow on hover, and
+   outline is the declared escape hatch (motion §5).                            */
+/* ⚠ Made much more pronounced on designer feedback, 2026-09-09. The first
+   version was a 2px ring at 0.5 alpha for 900ms and was easy to miss on a busy
+   page. Now: the page DIMS and the clickable things stay lit, which is the
+   real signal — plus a thick ring that pulses twice, and 1.8s to read it.
+   ⛔ Still neutral ink. No red, no green, no colour of any kind: the harm list
+   forbids valence and an affordance that broke the rule this design argues for
+   would be worse than no affordance. Pronounced ≠ coloured. */
+.ot-nx-dimmed{ position:relative }
+.ot-nx-dimmed::after{ content:''; position:fixed; inset:0; z-index:9500;
+  background:rgba(20,26,38,.42); pointer-events:none;
+  animation:ot-nx-dimin .18s var(--nx-ease) }
+@keyframes ot-nx-dimin{ from{ opacity:0 } to{ opacity:1 } }
+.ot-nx-flash{ position:relative; z-index:9600;
+  outline:3px solid transparent; outline-offset:3px; border-radius:3px;
+  animation:ot-nx-flash 1.8s var(--nx-ease) 1; }
+@keyframes ot-nx-flash{
+  0%      { outline-color:rgba(45,51,63,0);   box-shadow:0 0 0 0 rgba(255,255,255,0) }
+  12%     { outline-color:rgba(45,51,63,.95); box-shadow:0 0 0 6px rgba(255,255,255,.85) }
+  38%     { outline-color:rgba(45,51,63,.35); box-shadow:0 0 0 6px rgba(255,255,255,.55) }
+  58%     { outline-color:rgba(45,51,63,.95); box-shadow:0 0 0 6px rgba(255,255,255,.85) }
+  100%    { outline-color:rgba(45,51,63,0);   box-shadow:0 0 0 6px rgba(255,255,255,0) }
+}
+
+/* the PS account menu. ⛔ BUILT, not captured — the capture catches the
+   dropdown closed and its contents never render. Items that this prototype has
+   no screen for are shown and inert rather than hidden, because hiding them
+   would make the account area look smaller than it is. */
+.ot-nx-usermenu{ position:fixed; z-index:9700; min-width:212px; padding:6px;
+  background:var(--nx-surface); border:1px solid var(--nx-line); border-radius:8px;
+  box-shadow:0 10px 34px rgba(20,26,38,.18);
+  font:14px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+.ot-nx-um-item{ display:flex; align-items:center; gap:8px; width:100%; text-align:left;
+  padding:9px 10px; border:0; border-radius:5px; background:none; font:inherit;
+  color:var(--nx-ink); cursor:pointer; }
+.ot-nx-um-item:hover{ background:var(--nx-ground) }
+.ot-nx-um-item.is-off{ color:var(--nx-mut); cursor:not-allowed; opacity:.6 }
+.ot-nx-um-new{ margin-left:auto; font-size:10px; font-weight:700; letter-spacing:.4px;
+  text-transform:uppercase; padding:2px 6px; border-radius:9px;
+  background:var(--nx-ground); color:var(--nx-mut) }
+
+/* ── the walkthrough. Spotlight + coach mark, one step at a time. ──────────── */
+.ot-nx-tour[hidden]{ display:none!important }
+.ot-nx-tour{ position:fixed; inset:0; z-index:99000; pointer-events:none;
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+.ot-nx-tour .tr-spot{ position:fixed; border-radius:6px; pointer-events:none;
+  box-shadow:0 0 0 9999px rgba(20,26,38,.62), 0 0 0 3px rgba(255,255,255,.9) inset;
+  transition:top .22s var(--nx-ease), left .22s var(--nx-ease),
+             width .22s var(--nx-ease), height .22s var(--nx-ease); }
+.ot-nx-tour .tr-card{ position:fixed; width:332px; max-width:calc(100vw - 24px);
+  pointer-events:auto; background:var(--nx-surface); color:var(--nx-ink);
+  border-radius:10px; padding:16px 16px 12px;
+  box-shadow:0 18px 48px rgba(20,26,38,.32);
+  transition:top .22s var(--nx-ease), left .22s var(--nx-ease); }
+.ot-nx-tour .tr-x{ position:absolute; top:8px; right:8px; width:26px; height:26px;
+  border:0; border-radius:6px; background:none; color:var(--nx-mut);
+  font-size:13px; line-height:1; cursor:pointer }
+.ot-nx-tour .tr-x:hover{ background:var(--nx-ground) }
+.ot-nx-tour .tr-kicker{ margin:0; font-size:10px; font-weight:700; letter-spacing:.7px;
+  text-transform:uppercase; color:var(--nx-mut) }
+.ot-nx-tour .tr-title{ margin:6px 0 0; font-size:16px; line-height:22px; font-weight:700 }
+.ot-nx-tour .tr-body{ margin:6px 0 0; font-size:13px; line-height:19px; color:var(--nx-mut) }
+.ot-nx-tour .tr-foot{ display:flex; align-items:center; justify-content:space-between;
+  gap:12px; margin-top:14px; padding-top:10px; border-top:1px solid var(--nx-line) }
+.ot-nx-tour .tr-count{ font-size:11px; color:var(--nx-mut); font-variant-numeric:tabular-nums }
+.ot-nx-tour .tr-btns{ display:flex; gap:6px }
+.ot-nx-tour .tr-foot button{ font:inherit; font-size:13px; font-weight:600;
+  padding:6px 12px; border-radius:6px; cursor:pointer;
+  border:1px solid var(--nx-line); background:var(--nx-surface); color:var(--nx-ink) }
+.ot-nx-tour .tr-skip{ border-color:transparent!important; color:var(--nx-mut)!important;
+  font-weight:500!important }
+.ot-nx-tour .tr-next{ background:var(--nx-ink)!important; color:var(--nx-surface)!important;
+  border-color:var(--nx-ink)!important }
+.ot-nx-tour .tr-foot button:disabled{ opacity:.4; cursor:not-allowed }
+body.ot-nx-touring{ overflow:hidden }
+
+@media (prefers-reduced-motion: reduce){
+  .ot-nx-tour .tr-spot,.ot-nx-tour .tr-card{ transition:none!important }
+  .ot-nx-dimmed::after{ animation:none!important }
+}
+
+/* ══ B1 · the recommendation card ═════════════════════════════════════════════
+   ⛔ NOT a growth fix. The card stays exactly the height the capture gives it.
+   Measured 2026-09-09 in _base-home.html — the UNTOUCHED capture, with neither
+   _proto.css nor _proto.js loaded — every card on the home page carries two
+   EMPTY <a class="_7LlL4HEeWs0-"> siblings between the image and the card body,
+   59.2px each. They hold nothing (innerHTML === ""), and together they take
+   118px of a 298px fixed-height, overflow:hidden card. The body — which holds
+   the restaurant name, the review count and the cuisine line — is squeezed to
+   45.6px and clips the lot: the name lands at 303.4px inside a 298px box and
+   is invisible in the base capture too.
+   So: collapse the two empty anchors, and the body inherits their space
+   (flex:1 1 auto). Nothing grows, nothing is invented, and the card renders
+   the metadata it always had. A card whose anchors DO carry content is left
+   alone — the test is content, not position.
+   ⛔ NOT :empty. Two of these anchors are written with a newline inside, and a
+   whitespace text node is enough for :empty to stop matching — the first
+   attempt collapsed one of the two and left a 113px hole. The class is put on
+   by JS, which can ask the question that actually matters: no element
+   children, and nothing but whitespace inside.                                */
+.ot-nx-cardfix a.ot-nx-void{ display:none; }
+/* Collapsing them is only half of it. The card is a fixed-height flex column
+   and every child shrinks proportionally, so the freed space went to the PHOTO
+   and the body was still 12–15px short of its own last line. The body is the
+   part that must not shrink — a photo losing a few pixels is invisible, a
+   cuisine line being cut off is the bug. */
+.ot-nx-cardfix .SXYe3u6-sdM- > .GL0MAXz3iZA-{ flex-shrink:0; }
+
+/* ══ D · the combined filter, shared by home and search ══════════════════════
+   The modal keeps the capture's own chrome. Only two things are added: the
+   arrival (the page's one language — rises in, retraces out, motion §3) and
+   the measure chips that replace "+ Add a criterion".                          */
+.ReactModalPortal[hidden]{ display:none!important }
+.ReactModalPortal{ opacity:0; transition:opacity .24s var(--nx-ease) }
+.ReactModalPortal.is-in{ opacity:1 }
+/* ⛔ NEVER animate transform on .Rg3xAR5XnvU-. Above 768px the capture centres
+   the dialog with transform:translate(-50%,-50%), so a transition of our own on
+   that property throws the modal into the bottom-right quadrant. It did exactly
+   that the first time this was wired. The rise goes on the plain wrapper div
+   inside it, which carries no layout of its own. */
+.ReactModalPortal .Rg3xAR5XnvU- > div{ transform:translateY(10px);
+  transition:transform .26s var(--nx-ease) }
+.ReactModalPortal.is-in .Rg3xAR5XnvU- > div{ transform:none }
+body.ot-nx-filter-open{ overflow:hidden }
+
+/* D2 · the capture was taken with EVERY section open, so the host's own
+   chevrons are frozen as "up" and now lie about four collapsed sections. Our
+   three already rotate (search.html's own rule, scoped to .ot-nx-chev); this
+   is the same rule for the four that are OpenTable's. */
+button.fsPHzMpMi90-[aria-expanded="false"] [data-test="icUp"]:not(.ot-nx-chev){
+  display:inline-flex; transform:rotate(180deg) }
+
+/* D5 · the group a dietary filter never removes: no published menu, so no
+   answer either way. ux-copy §3.2 · Results · no menu group. */
+.ot-nx-group{ list-style:none; padding:20px 0 4px; grid-column:1/-1 }
+.ot-nx-group-h{ margin:0; font-size:16px; line-height:22px; font-weight:600;
+  color:var(--nx-ink) }
+.ot-nx-group-p{ margin:4px 0 0; max-width:56ch; font-size:13px; line-height:18px;
+  color:var(--nx-mut) }
+
+/* D3 · the measures not yet added, as chips. The option set becomes visible
+   and finite instead of hiding behind a generic add button. */
+.ot-nx-chiprow{ display:flex; align-items:baseline; flex-wrap:wrap; gap:8px; padding:2px 0 }
+.ot-nx-chiplabel{ font-size:12px; line-height:20px; color:var(--nx-mut) }
+.ot-nx-chipset{ display:flex; flex-wrap:wrap; gap:6px }
+.ot-nx-measure-chip{ font:inherit; font-size:12px; line-height:16px;
+  padding:5px 10px; border-radius:14px; cursor:pointer;
+  border:1px solid var(--nx-line); background:var(--nx-surface); color:var(--nx-ink) }
+.ot-nx-measure-chip:hover{ border-color:var(--nx-ink) }
+
+/* ══ B3 / C1 · the goal editor ═══════════════════════════════════════════════
+   Uses .ot-nx-panel above — the design's own modal language, not a second one.
+   The row shape deliberately matches the filter's numeric row, because they
+   are the same idea: a measure, a CEILING OR FLOOR, and a number.             */
+.ot-nx-goalpanel{ padding:0; max-height:calc(100vh - 64px); display:flex; flex-direction:column }
+.ot-nx-goalpanel .gp-head{ padding:20px 24px 12px; border-bottom:1px solid var(--nx-line) }
+.ot-nx-goalpanel .gp-title{ margin:0; font-size:20px; line-height:26px; font-weight:600;
+  color:var(--nx-ink) }
+.ot-nx-goalpanel .gp-help{ margin:6px 0 0; font-size:13px; line-height:18px; color:var(--nx-mut) }
+.ot-nx-goalpanel .gp-scope{ margin:6px 0 0; font-size:12px; line-height:17px; color:var(--nx-mut) }
+.ot-nx-goalpanel .gp-body{ padding:16px 24px; overflow:auto }
+.ot-nx-goalpanel .gp-sub{ margin:0 0 8px; font-size:12px; line-height:16px; font-weight:600;
+  letter-spacing:.2px; color:var(--nx-mut) }
+.ot-nx-goalpanel .gp-presets{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px }
+.ot-nx-goalpanel .gp-preset{ font:inherit; font-size:12px; line-height:16px; padding:6px 12px;
+  border-radius:14px; cursor:pointer; border:1px solid var(--nx-line);
+  background:var(--nx-surface); color:var(--nx-ink) }
+.ot-nx-goalpanel .gp-preset:hover{ border-color:var(--nx-ink) }
+.ot-nx-goalpanel .gp-rows{ list-style:none; margin:0 0 10px; padding:0;
+  display:flex; flex-direction:column; gap:8px }
+.ot-nx-goalpanel .gp-row{ display:flex; align-items:center; gap:8px }
+.ot-nx-goalpanel .gp-row select{ font:inherit; font-size:13px; padding:6px 8px; border-radius:4px;
+  border:1px solid var(--nx-line); background:var(--nx-surface); color:var(--nx-ink) }
+.ot-nx-goalpanel .gp-m{ flex:1 1 auto }
+.ot-nx-goalpanel .ot-nx-valwrap{ display:inline-flex; align-items:center; gap:4px }
+.ot-nx-goalpanel .gp-v{ width:78px; font:inherit; font-size:13px; padding:6px 8px;
+  border-radius:4px; border:1px solid var(--nx-line); background:var(--nx-surface) }
+.ot-nx-goalpanel .gp-u{ font-size:12px; color:var(--nx-mut); min-width:24px }
+.ot-nx-goalpanel .gp-x{ font:inherit; font-size:13px; line-height:1; padding:6px 8px; cursor:pointer;
+  border:1px solid transparent; border-radius:4px; background:none; color:var(--nx-mut) }
+.ot-nx-goalpanel .gp-x:hover{ border-color:var(--nx-line) }
+.ot-nx-goalpanel .gp-held{ margin:12px 0 0; font-size:12px; line-height:17px; color:var(--nx-mut) }
+.ot-nx-goalpanel .gp-foot{ display:flex; justify-content:flex-end; gap:8px;
+  padding:12px 24px 16px; border-top:1px solid var(--nx-line) }
+.ot-nx-goalpanel .gp-foot button{ font:inherit; font-size:14px; line-height:20px; font-weight:500;
+  padding:8px 16px; border-radius:4px; cursor:pointer;
+  border:1px solid var(--nx-ink); background:var(--nx-surface); color:var(--nx-ink) }
+.ot-nx-goalpanel .gp-save{ background:var(--nx-ink); color:var(--nx-surface) }
+
+/* C1 · the goal restated beside its measure, so a ceiling flipped to a floor
+   is visible on the hub and not only inside the editor. The row is a
+   6.5rem/1fr/7rem grid, so the goal stacks under the label rather than
+   fighting it for the first column. */
+.ot-nx-measure .ot-nx-label{ display:flex; flex-direction:column; }
+.ot-nx-goalof{ font-size:12px; line-height:16px; font-weight:400; color:var(--nx-mut); }
+.ot-nx-editgoals{ margin:-10px 0 16px; }
+
+/* the Profile row's second value line and the two sub-labels (ux-copy §3.1).
+   ⛔ Two values with DIFFERENT SHARING RULES on one row — ia.md flagged that it
+   has to be structural, not a caption. Hence two <p> values, each with its own
+   sub-label, rather than one line with a parenthetical. */
+.ot-nx-rowsub{ margin:2px 0 0; font-size:12px; line-height:16px; color:var(--nx-mut) }
+.ot-nx-rowval{ margin:8px 0 0; font-size:14px; line-height:20px; color:var(--nx-ink) }
+.ot-nx-rowval.is-empty{ color:var(--nx-mut) }
+
+/* B3 · "Set your goals" is a control now, not a link off the page. It keeps
+   the link's own look so the copy and the affordance did not both change. */
+.ot-nx-inline-cta{ font:inherit; padding:0; border:0; background:none; cursor:pointer;
+  color:var(--nx-ink); font-weight:500; text-decoration:underline }
+.ot-nx-adopted{ margin:8px 0 0; font-size:12px; line-height:17px; color:var(--nx-mut) }
+
+/* ══ THE PROTOTYPE CONTROLS ═══════════════════════════════════════════════════
+   Rebuilt 2026-09-09 to the designer's reference: one horizontal row of dark
+   pills, bottom-centre, everything visible at once. It replaces the collapsed
+   yellow panel plus the two separate action pills — a control you have to open
+   before you can use it is a control nobody reaches for in a demo.
+   ⛔ Never rendered under ?cap=: harness() returns before it is built, and the
+   display:none below is belt and braces.                                       */
+#proto-bar{ position:fixed; left:50%; transform:translateX(-50%); bottom:18px;
+  z-index:99999; display:flex; flex-direction:column; align-items:center; gap:7px;
+  max-width:calc(100vw - 24px);
+  font:600 13px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+#proto-bar .pb-caption{ font-size:10px; font-weight:700; letter-spacing:.8px;
+  text-transform:uppercase; color:#8a92a6; text-shadow:0 1px 0 rgba(255,255,255,.85); }
+/* ⚠ ONE LINE, on the designer's ask — there is room at the sides and wrapping
+   into three rows wasted it. The two <select>s were the reason it wrapped:
+   a select sizes itself to its LONGEST option, so "Filter open — two sections
+   expanded — NEW" made the State pill 391px and the row 1264px. They are
+   capped and ellipsised instead; the full text is still in the open list.
+   overflow-x is the last resort for a genuinely narrow window — the row
+   scrolls sideways rather than stacking. The vertical padding/negative margin
+   is so the pills' drop shadows are not clipped by that scroll container. */
+#proto-bar .pb-row{ display:flex; align-items:center; gap:9px; flex-wrap:nowrap;
+  justify-content:center; max-width:100%;
+  overflow-x:auto; overflow-y:visible; scrollbar-width:none;
+  padding:16px 6px; margin:-16px -6px; }
+#proto-bar .pb-row::-webkit-scrollbar{ display:none }
+#proto-bar .pb-pill{ flex:0 0 auto }
+/* THREE pills, not six — the three controls that SET something are one group,
+   the two that SHOW something are another, and the note stands alone. Six
+   separate drop shadows along the bottom of the screen competed with each
+   other; grouping them puts the shadow on the group and a hairline inside it.
+   min-height keeps every segment level: a select and a toggle are taller than
+   a line of text, and the row read as ragged without it. */
+#proto-bar .pb-pill{ display:inline-flex; align-items:stretch;
+  min-height:41px; box-sizing:border-box;
+  background:#151a29; color:#fff; border:0; border-radius:26px; padding:0 15px;
+  font:inherit; box-shadow:0 10px 30px rgba(10,14,25,.28); white-space:nowrap;
+  overflow:hidden; }
+#proto-bar .pb-group{ padding:0 }
+#proto-bar .pb-seg{ display:inline-flex; align-items:center; gap:10px;
+  padding:0 15px; background:none; border:0; color:inherit; font:inherit;
+  white-space:nowrap; }
+#proto-bar .pb-seg[hidden]{ display:none }
+/* the hairline. align-self:stretch with a vertical inset, so it reads as a
+   divider inside the pill rather than a wall across it. */
+#proto-bar .pb-div{ width:1px; flex:0 0 1px; align-self:stretch;
+  margin:9px 0; background:#333c56; }
+#proto-bar .pb-div[hidden]{ display:none }
+#proto-bar .pb-label{ color:#8b93a7; font-weight:600 }
+#proto-bar .pb-act{ cursor:pointer; transition:background .14s var(--nx-ease) }
+#proto-bar .pb-act:hover{ background:#1f2740 }
+#proto-bar .pb-act b{ color:#8b93a7; font-size:13px; line-height:1 }
+/* the ⓘ is a bare text node, so with the pill's align-items:stretch it became
+   an anonymous flex item filling the height and the glyph sat at the top of
+   it. Centred both ways, and squared off so the pill is a true circle. */
+#proto-bar .pb-info{ width:41px; padding:0; font-size:15px; line-height:1;
+  align-items:center; justify-content:center; color:#8b93a7 }
+
+/* "Signed in" is always visible, and disabled where the surface has no
+   counterpart capture. A disabled control that does not say why reads as
+   broken, so the reason is on its title. */
+#proto-bar .pb-switch{ width:40px; height:23px; border-radius:12px; border:0; padding:0;
+  background:#39405a; position:relative; cursor:pointer;
+  transition:background .18s var(--nx-ease) }
+#proto-bar .pb-switch::after{ content:''; position:absolute; top:3px; left:3px;
+  width:17px; height:17px; border-radius:50%; background:#fff;
+  transition:transform .18s var(--nx-ease) }
+#proto-bar .pb-switch[aria-pressed="true"]{ background:#5b5fe0 }
+#proto-bar .pb-switch[aria-pressed="true"]::after{ transform:translateX(17px) }
+#proto-bar .pb-switch:disabled{ opacity:.4; cursor:not-allowed }
+
+#proto-bar .pb-select{ background:#232b40; color:#fff; border:0; border-radius:15px;
+  padding:6px 26px 6px 11px; font:inherit; font-weight:600; cursor:pointer;
+  -webkit-appearance:none; appearance:none;
+  background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b93a7' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 9px center; }
+#proto-bar .pb-select:hover{ background-color:#2c3550 }
+#proto-bar #pbSurface{ max-width:186px; text-overflow:ellipsis }
+#proto-bar #pbState{ max-width:212px; text-overflow:ellipsis }
+#proto-bar .pb-note{ max-width:min(760px, calc(100vw - 40px)); background:#151a29;
+  color:#c7cddb; border-radius:12px; padding:12px 15px; font-weight:400;
+  font-size:12px; line-height:1.55; box-shadow:0 10px 30px rgba(10,14,25,.28); }
+#proto-bar .pb-note[hidden]{ display:none }
+
+body.ot-nx-capturing #proto-bar{ display:none!important }
+body.ot-nx-touring #proto-bar{ display:none }
+
+/* ══ the filter modal's Reset / Apply bar ═════════════════════════════════════
+   ⛔ The capture styles it `position:fixed; top:0; left:0; right:0` — fixed to
+   the VIEWPORT, which is right for the full-screen mobile dialog it was
+   captured from and wrong for a centred desktop modal: the bar detaches from
+   the panel and pins itself to the top of the window. Sticky inside the modal's
+   own scroller is what that rule was reaching for. The 2.5rem top padding
+   existed only to clear the fixed bar, so it goes with it.                     */
+.ReactModalPortal .ue-ekp7BAu0-{ position:sticky!important; top:0; left:auto; right:auto;
+  padding:12px 16px!important; align-items:center;
+  box-shadow:0 1px 0 var(--otkit-color-border-divider, #d8d9db); }
+.ReactModalPortal ._45sy93KCt7I-{ padding-top:0!important }
+
+/* the flash is motion; with motion off, hold the ring for the same beat
+   instead of dropping the affordance entirely */
+@media (prefers-reduced-motion: reduce){
+  .ot-nx-flash{ animation:none!important; outline-color:rgba(45,51,63,.95);
+    box-shadow:0 0 0 6px rgba(255,255,255,.85) }
+}
