@@ -59,6 +59,26 @@
 
   /* ══ the modal ═══════════════════════════════════════════════════════════ */
 
+  /* ⛔ _filter.css was linked from home.html and home-signed-out.html ONLY —
+     never from search.html or search-signed-out.html, which are the screens
+     the modal actually opens on. Every NX rule in it (.ot-nx-radio, .ot-nx-dot,
+     .ot-nx-sub, .ot-nx-tabs) was therefore inert exactly where the filter is
+     used, and nothing errored: the controls rendered as bare unstyled inputs.
+     Fixed HERE rather than by adding a <link> to two more captures, because
+     the file that needs the stylesheet is the one that should ask for it —
+     any screen that loads _filter.js now gets the rules, and a future screen
+     cannot forget. */
+  function ensureStyles() {
+    var have = [].slice.call(document.querySelectorAll('link[rel="stylesheet"]'))
+      .some(function (l) { return /(^|\/)_filter\.css(\?|$)/.test(l.getAttribute('href') || ''); });
+    if (have) return;
+    var l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = '_filter.css';
+    document.head.appendChild(l);
+  }
+  ensureStyles();
+
   function modal() { return $('[data-test="multi-search-filters-modal"]'); }
 
   function ensure() {
@@ -116,14 +136,22 @@
      modes should not silently destroy numbers someone typed — but readDom()
      drops them, so they never reach the filter, the summary or the count. */
 
-  function blank() { return { diet: [], mode: null, compare: null, numbers: [] }; }
+  /* ⛔ DEFAULT_MODE is not decoration. Once the switch is a pair of tabs,
+     "nothing selected" stops being a state the control can express — a tab
+     strip with no active tab reads as broken, not as neutral. So a mode is
+     always in force, including straight after Reset. It costs nothing: a mode
+     with no values in it still filters on nothing, because summary() only
+     counts numbers that actually have a value. */
+  var DEFAULT_MODE = 'number';
+
+  function blank() { return { diet: [], mode: DEFAULT_MODE, compare: null, numbers: [] }; }
 
   function get() {
     var f = (NX.get() || {}).filter;
     if (!f) return blank();
     var mode = f.mode || null;
     /* pre-mode saved state: infer it, so an existing session doesn't open blank */
-    if (!mode) mode = f.compare ? 'compare' : ((f.numbers || []).length ? 'number' : null);
+    if (!mode) mode = f.compare ? 'compare' : ((f.numbers || []).length ? 'number' : DEFAULT_MODE);
     return { diet: (f.diet || []).slice(),
              mode: mode,
              compare: f.compare || null,
@@ -386,11 +414,18 @@
      Placed ABOVE both groups because it governs both — and the label reuses
      the deck's own phrase ("what you're going for") rather than inventing a
      second vocabulary for the same idea. */
+  /* ⛔ ORDER IS THE DEFAULT. "A number you set" is first and starts selected:
+     it is the mode that works for everyone, whereas comparing needs a history
+     the diner may not have yet. Leading with the mode that can fail is how you
+     open a filter on a dead end.
+     The labels are shortened from the section headings below — a tab is a
+     handle, not a sentence, and "Compared with how you usually eat out" cannot
+     be one. The full phrase survives verbatim on the section header, so
+     nothing is lost; the sub-lines are dropped because a two-line tab is a
+     radio wearing a costume. */
   var MODES = [
-    { v: 'compare', t: 'Compared with how you usually eat out',
-      s: 'A target relative to your own history here' },
-    { v: 'number',  t: 'A number you set',
-      s: 'Calories, protein or carbs — your own limit' }
+    { v: 'number',  t: 'A number you set' },
+    { v: 'compare', t: 'Compared with your usual' }
   ];
 
   function buildModeSwitch(m) {
@@ -406,28 +441,39 @@
     head.innerHTML = '<div class="bSwSaaUFI34-">' +
       '<h5 id="ot-nx-mode-name" class="Hl6ZEdQQYmo-">What you’re going for</h5></div>';
 
-    var ul = document.createElement('ul');
-    ul.id = 'ot-nx-mode-group';
-    ul.className = 'ml356-7yazQ-';
-    ul.setAttribute('role', 'radiogroup');
-    ul.setAttribute('aria-labelledby', 'ot-nx-mode-name');
-    ul.innerHTML = MODES.map(function (o) {
-      return '<li class="xNwEzpoJfLI-"><label class="ot-nx-radio">' +
+    /* ⚠ Styled as tabs, but still a RADIO GROUP underneath — not role="tab".
+       This picks which control you fill in; it does not page between views of
+       the same thing. Radios also get arrow-key navigation and the one-of-many
+       announcement from the browser for free, where an ARIA tablist would mean
+       hand-rolling the keyboard behaviour and getting it subtly wrong. */
+    var tabs = document.createElement('div');
+    tabs.id = 'ot-nx-mode-group';
+    tabs.className = 'ot-nx-tabs';
+    tabs.setAttribute('role', 'radiogroup');
+    tabs.setAttribute('aria-labelledby', 'ot-nx-mode-name');
+    tabs.innerHTML = MODES.map(function (o) {
+      return '<label class="ot-nx-tab">' +
         '<input type="radio" name="ot-nx-mode" value="' + o.v + '" data-nx-mode="">' +
-        '<span class="ot-nx-dot" aria-hidden="true"></span>' +
-        '<span class="ot-nx-radio-label">' + o.t +
-        '<span class="ot-nx-sub">' + o.s + '</span></span></label></li>';
+        '<span>' + o.t + '</span></label>';
     }).join('');
 
     anchor.parentNode.insertBefore(head, anchor);
-    anchor.parentNode.insertBefore(ul, anchor);
+    anchor.parentNode.insertBefore(tabs, anchor);
 
     /* "Or set a number" was the old model apologising for the conflict in
        copy. The radio states it structurally now, so the word can go. */
     var nh = document.getElementById('ot-nx-number-button-name');
     if (nh && /^Or\s/.test(nh.textContent || '')) nh.textContent = 'Set a number';
 
-    $$('[data-nx-mode]', m).forEach(function (r) { r.onchange = commitFromDom; });
+    /* Check one immediately. write() would get here eventually, but "eventually"
+       leaves a tab strip with no active tab on screen in between, which is the
+       one state this control must never show. */
+    var cur = get().mode || DEFAULT_MODE;
+    $$('[data-nx-mode]', m).forEach(function (r) {
+      r.checked = (r.value === cur);
+      r.onchange = commitFromDom;
+    });
+    applyMode(cur);
   }
 
   function build() {

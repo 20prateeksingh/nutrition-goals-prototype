@@ -406,3 +406,35 @@
    two sections would hide the reason they appear and disappear. */
 .ot-nx-modehead{ cursor:default; }
 .ot-nx-modehead:hover{ background:none; }
+
+/* ── the mode tabs ───────────────────────────────────────────────────────────
+   A segmented control: one track, the active segment lifted out of it. Radio
+   inputs underneath (see _filter.js) — this is presentation only, so arrow-key
+   navigation and the "1 of 2" announcement keep working.
+   flex:1 1 0 with min-width:0 so the two segments split the row evenly however
+   long the labels are, rather than the longer one bullying the shorter. */
+.ot-nx-tabs{ display:flex; gap:2px; margin:0 0 4px; padding:3px;
+  background:var(--otkit-color-background-secondary,#f1f2f3); border-radius:8px; }
+.ot-nx-tab{ flex:1 1 0; min-width:0; position:relative;
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  padding:8px 10px; border-radius:6px; cursor:pointer;
+  font-size:13px; line-height:18px; font-weight:600;
+  color:var(--otkit-color-foreground-secondary,#6f737b);
+  transition:background .16s var(--nx-ease,ease), color .16s var(--nx-ease,ease); }
+.ot-nx-tab > span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ot-nx-tab input{ position:absolute; opacity:0; width:1px; height:1px; margin:0; }
+.ot-nx-tab:hover{ color:var(--otkit-color-foreground-default,#2d333f); }
+.ot-nx-tab:has(input:checked){ background:var(--otkit-color-background,#fff);
+  color:var(--otkit-color-foreground-default,#2d333f);
+  box-shadow:0 1px 2px rgba(45,51,63,.14); }
+.ot-nx-tab:has(input:focus-visible){ outline:2px solid var(--otkit-color-border-action,#2d333f);
+  outline-offset:1px; }
+@media (prefers-reduced-motion:reduce){ .ot-nx-tab{ transition:none } }
+
+/* ⛔ [hidden] LOSES here without this. The captured stylesheet sets a display
+   value on .fsPHzMpMi90- (the section-header button), and an author rule beats
+   the user-agent's [hidden]{display:none} — so applyMode() was setting the
+   attribute correctly and the compare header stayed on screen in number mode.
+   Silent, and visible only in a screenshot. */
+#ot-nx-compare-button[hidden], #ot-nx-number-button[hidden],
+#ot-nx-compare-group[hidden],  #ot-nx-number-group[hidden]{ display:none !important; }
