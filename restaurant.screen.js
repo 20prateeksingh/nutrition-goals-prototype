@@ -91,7 +91,30 @@
     '.ot-nx-select{flex:0 0 auto;font:inherit;font-size:12px;line-height:16px;font-weight:500;',
     '  padding:4px 10px;border-radius:4px;border:1px solid var(--nx-line);',
     '  background:var(--nx-surface);color:var(--nx-ink);cursor:pointer}',
-    '.ot-nx-select.is-selected{border-color:var(--nx-ink);font-weight:600}',
+    /* Selected is a FILLED pill, not a heavier outline. At 12px a border-colour
+       change is close to invisible against a dense menu — the state has to read
+       at a glance, and across a screen-share. */
+    '.ot-nx-select.is-selected{border-color:var(--nx-ink);background:var(--nx-ink);',
+    '  color:var(--nx-surface);font-weight:600}',
+
+    /* ── the selected meal, as chips ─────────────────────────────────────────
+       Deliberately OUTSIDE .ot-nx-stack. The stack's occupants share one grid
+       cell so the empty↔meters swap never moves the frame; a chip row grows
+       with every dish, so putting it in that cell would reintroduce exactly the
+       jump the stack exists to prevent. The panel now grows as dishes are
+       added. That is the trade, made knowingly. */
+    '.ot-nx-mealchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}',
+    '.ot-nx-mealchips:empty{display:none}',
+    '.ot-nx-mealchip{display:inline-flex;align-items:center;gap:6px;max-width:100%;',
+    '  padding:3px 4px 3px 9px;border-radius:4px;border:1px solid var(--nx-line);',
+    '  background:var(--nx-surface);font-size:12px;line-height:16px;color:var(--nx-ink)}',
+    '.ot-nx-chipname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.ot-nx-chipx{flex:0 0 auto;width:16px;height:16px;display:inline-flex;',
+    '  align-items:center;justify-content:center;padding:0;border:0;border-radius:3px;',
+    '  background:transparent;color:var(--nx-mut);font:inherit;font-size:14px;line-height:1;',
+    '  cursor:pointer;transition:background .14s var(--nx-ease),color .14s var(--nx-ease)}',
+    '.ot-nx-chipx:hover{background:var(--nx-line);color:var(--nx-ink)}',
+    '.ot-nx-chipx:focus-visible{outline:2px solid var(--nx-accent);outline-offset:1px}',
     /* the row itself hovers as quietly as the control; never both at once */
     '.iC5T-7C2eyc-.ot-nx-hoverable:has(.ot-nx-select:hover){outline-color:transparent}',
 
@@ -157,7 +180,7 @@
 
   var dishes = [];            // {li, idx, name, est, btn}
   var selected = [];          // dish indices, in the order they were chosen
-  var panel, stackEmpty, stackMeters, noteEl, sugTtl, sugHelp, sugSlots = [];
+  var panel, chipRow, stackEmpty, stackMeters, noteEl, sugTtl, sugHelp, sugSlots = [];
   var rows = {};              // key -> {val, meter}
   var lastSugs = [];
   var menuBits = {};
@@ -258,6 +281,13 @@
     panel.setAttribute('aria-label', COPY.title);
     panel.appendChild(el('h2', 'ot-nx-ttl', COPY.title));
     panel.appendChild(el('p', 'ot-nx-sub', COPY.helper));
+
+    /* what's in the meal, before what it adds up to. Above the stack, so the
+       diner reads the dishes and then the consequence — and so removing one is
+       a single click next to the thing being removed, not a hunt back up the
+       menu for the Selected button that put it there. */
+    chipRow = el('div', 'ot-nx-mealchips');
+    panel.appendChild(chipRow);
 
     /* the one region that changes character: empty copy and the three meters
        occupy the SAME grid cell, so the frame never grows or shrinks.        */
@@ -367,10 +397,36 @@
   }
 
   /* ── render ────────────────────────────────────────────────────────────── */
+  /* ⛔ Rebuilt wholesale rather than diffed. The row is at most a handful of
+     chips, and selection ORDER is meaningful — `selected` is append-ordered, so
+     a chip has to be able to move. Diffing buys nothing here and loses that. */
+  function renderChips() {
+    if (!chipRow) return;
+    chipRow.textContent = '';
+    selected.forEach(function (i) {
+      var d = null;
+      for (var k = 0; k < dishes.length; k++) { if (dishes[k].idx === i) { d = dishes[k]; break; } }
+      if (!d) return;
+      var name = (d.name || '').trim() || 'This dish';
+      var chip = el('span', 'ot-nx-mealchip');
+      chip.appendChild(el('span', 'ot-nx-chipname', name));
+      var x = el('button', 'ot-nx-chipx', '×');
+      x.type = 'button';
+      x.setAttribute('aria-label', 'Remove ' + name);
+      /* the same toggle() the Select button calls — one way in and one way out,
+         so the meters, the suggestions and the published meal cannot disagree */
+      x.onclick = function () { toggle(d.idx); };
+      chip.appendChild(x);
+      chipRow.appendChild(chip);
+    });
+  }
+
   function render() {
     var t = totals();
     var any = selected.length > 0;
     var overCount = 0, metCount = 0;
+
+    renderChips();
 
     var measurable = 0, overLabel = '';
     GOALS.forEach(function (g) {

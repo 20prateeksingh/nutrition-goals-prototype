@@ -382,8 +382,29 @@ button.fsPHzMpMi90-[aria-expanded="false"] [data-test="icUp"]:not(.ot-nx-chev){
   font-size:12px; line-height:1.55; box-shadow:0 10px 30px rgba(10,14,25,.28); }
 #proto-bar .pb-note[hidden]{ display:none }
 
+/* ── Hide / show ─────────────────────────────────────────────────────────────
+   The caption claims the bar is "not part of the design"; being able to take it
+   away is what makes that true. Collapsed, it leaves one small pill in exactly
+   the spot it vacated — the control that brings it back is where it went. */
+#proto-bar .pb-hide{ width:41px; padding:0; font-size:15px; line-height:1;
+  align-items:center; justify-content:center; color:#8b93a7 }
+#proto-bar.is-hidden{ display:none }
+#proto-show{ position:fixed; left:50%; transform:translateX(-50%); bottom:18px;
+  z-index:99999; display:none; align-items:center;
+  padding:9px 15px; border:0; border-radius:26px; cursor:pointer;
+  background:#151a29; color:#8b93a7;
+  font:700 10px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  letter-spacing:.8px; text-transform:uppercase;
+  box-shadow:0 10px 30px rgba(10,14,25,.28);
+  transition:background .14s var(--nx-ease), color .14s var(--nx-ease) }
+#proto-show.is-on{ display:inline-flex }
+#proto-show:hover{ background:#1f2740; color:#fff }
+#proto-show:focus-visible{ outline:2px solid #5b5fe0; outline-offset:2px }
+
 body.ot-nx-capturing #proto-bar{ display:none!important }
 body.ot-nx-touring #proto-bar{ display:none }
+body.ot-nx-capturing #proto-show{ display:none!important }
+body.ot-nx-touring #proto-show{ display:none }
 
 /* ══ the filter modal's Reset / Apply bar ═════════════════════════════════════
    ⛔ The capture styles it `position:fixed; top:0; left:0; right:0` — fixed to

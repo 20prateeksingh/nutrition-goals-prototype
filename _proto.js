@@ -508,9 +508,54 @@
         '</div>' +
         '<button type="button" class="pb-pill pb-act pb-info" data-nx-act="note" ' +
           'aria-label="About this screen">ⓘ</button>' +
+        '<button type="button" class="pb-pill pb-act pb-hide" id="pbHide" ' +
+          'aria-label="Hide prototype controls" ' +
+          'title="Hide prototype controls (H)">⌄</button>' +
       '</div>' +
       '<div class="pb-note" id="pbNote" hidden></div>';
     document.body.appendChild(bar);
+
+    /* ── Hide / show ────────────────────────────────────────────────────────
+       The bar is scaffolding, and a walkthrough sometimes needs the frame
+       clear — the caption says "not part of the design", but the honest way to
+       prove that is to be able to take it away.
+       ⛔ Persisted, because every screen here is its own document: an
+       un-persisted toggle would snap back on every navigation, which is the
+       one thing that would make it useless in the middle of a demo. */
+    const HKEY = 'ot-nx-bar-hidden';
+    const show = document.createElement('button');
+    show.type = 'button';
+    show.id = 'proto-show';
+    show.textContent = 'Prototype controls';
+    show.setAttribute('aria-label', 'Show prototype controls');
+    document.body.appendChild(show);
+
+    const setBarHidden = function (on, persist) {
+      bar.classList.toggle('is-hidden', on);
+      show.classList.toggle('is-on', on);
+      if (persist !== false) { try { localStorage.setItem(HKEY, on ? '1' : '0'); } catch (e) {} }
+    };
+    bar.querySelector('#pbHide').onclick = function () { setBarHidden(true); show.focus(); };
+    show.onclick = function () {
+      setBarHidden(false);
+      const h = bar.querySelector('#pbHide');
+      if (h) h.focus();
+    };
+
+    let barHidden = '0';
+    try { barHidden = localStorage.getItem(HKEY) || '0'; } catch (e) {}
+    setBarHidden(barHidden === '1', false);
+
+    /* H toggles it, so the frame can be cleared without reaching for the mouse
+       mid-sentence. Guarded against every field you could be typing into. */
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'h' && e.key !== 'H') return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target;
+      if (t && (t.isContentEditable ||
+                /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || ''))) return;
+      setBarHidden(!bar.classList.contains('is-hidden'));
+    });
 
     /* ── Signed in · always visible, disabled where impossible ────────────── */
     const sw = bar.querySelector('#pbAuth');
