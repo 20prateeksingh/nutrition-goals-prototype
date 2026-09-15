@@ -657,12 +657,28 @@
   }
 
   /* ── STEP 4 · the harness ──────────────────────────────────────────────── */
+  /* ── presentation trim ───────────────────────────────────────────────────
+     Mirrors restaurant.screen.js. NOT a design proposal — it subtracts from
+     the captured product, so it is confined to the harness and to this one
+     card. Removing this function restores the page exactly, and the identical
+     social proof on home and search result cards is left alone. */
+  function trimForDemo() {
+    var card = document.getElementById('bookable-cta');
+    if (!card) return;
+    var avail = card.querySelector('[data-test="multi-day-availability-button"]');
+    if (avail) (avail.parentElement || avail).remove();
+    [].forEach.call(card.querySelectorAll('span'), function (s) {
+      if (/^Booked \d+ times? today$/.test((s.textContent || '').trim())) s.remove();
+    });
+  }
+
   function boot() {
     var style = document.createElement('style');
     style.setAttribute('data-ot-nx', 'restaurant-signed-out');
     style.textContent = CSS;
     document.head.appendChild(style);
 
+    trimForDemo();
     buildMenu();
     buildPanel();
     buildNoMenu();

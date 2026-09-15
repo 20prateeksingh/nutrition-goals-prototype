@@ -92,18 +92,40 @@
     sections().forEach(function (b) {
       setSection(b, OPEN_ON_ENTRY.indexOf(b.getAttribute('aria-controls')) !== -1);
     });
+    /* ⛔ LAST, and deliberately so. OPEN_ON_ENTRY opens both nutrition groups;
+       the mode gate then closes whichever one is not in force. Run the other
+       way round and the open-on-entry default silently reinstates the very
+       both-at-once state this change removes. */
+    applyMode(get().mode);
   }
 
   /* ══ state ═══════════════════════════════════════════════════════════════
-     { diet: ['Vegetarian'], compare: 'lighter'|null,
-       numbers: [{ m:'Calories', c:'under'|'at least', v:'600' }] }            */
+     { diet: ['Vegetarian'], mode: 'compare'|'number'|null,
+       compare: 'lighter'|null,
+       numbers: [{ m:'Calories', c:'under'|'at least', v:'600' }] }
 
-  function blank() { return { diet: [], compare: null, numbers: [] }; }
+     ⛔ `mode` exists because the two groups were CONTRADICTORY, not additive.
+     The heading already said "Or set a number" and the UI let you do both —
+     a relative target ("about 20% under your usual") and an absolute one
+     ("under 600") applied at once, with no rule for which wins. The summary
+     line dutifully printed both. One target at a time is the only honest
+     model, so the choice is now explicit and structural: whichever mode is
+     not selected contributes nothing to the applied filter.
+
+     Values on the inactive side are LEFT IN THE DOM on purpose — switching
+     modes should not silently destroy numbers someone typed — but readDom()
+     drops them, so they never reach the filter, the summary or the count. */
+
+  function blank() { return { diet: [], mode: null, compare: null, numbers: [] }; }
 
   function get() {
     var f = (NX.get() || {}).filter;
     if (!f) return blank();
+    var mode = f.mode || null;
+    /* pre-mode saved state: infer it, so an existing session doesn't open blank */
+    if (!mode) mode = f.compare ? 'compare' : ((f.numbers || []).length ? 'number' : null);
     return { diet: (f.diet || []).slice(),
+             mode: mode,
              compare: f.compare || null,
              numbers: (f.numbers || []).map(function (n) { return { m: n.m, c: n.c, v: n.v }; }) };
   }
@@ -197,13 +219,25 @@
     if (!m) return get();
     var f = blank();
     $$('[data-nx-diet]', m).forEach(function (i) { if (i.checked) f.diet.push(i.value); });
+
+    var md = $$('[data-nx-mode]', m).filter(function (r) { return r.checked; })[0];
+    f.mode = md ? md.value : null;
+
+    /* ⛔ The mode gate. Read BOTH sides off the DOM so nothing typed is lost,
+       then keep only the side the diner actually chose. This is the single
+       place the exclusivity is enforced — every consumer (summary, counts,
+       the applied chip, the search screen) reads `f`, so none of them can
+       disagree about which target is in force. */
     var c = $$('[data-nx-cmp]', m).filter(function (r) { return r.checked; })[0];
-    f.compare = c ? c.value : null;
-    rows().forEach(function (r) {
-      f.numbers.push({ m: $('.ot-nx-measure', r).value,
-                       c: $('.ot-nx-compare', r).value,
-                       v: $('.ot-nx-num', r).value });
-    });
+    if (f.mode === 'compare') f.compare = c ? c.value : null;
+
+    if (f.mode === 'number') {
+      rows().forEach(function (r) {
+        f.numbers.push({ m: $('.ot-nx-measure', r).value,
+                         c: $('.ot-nx-compare', r).value,
+                         v: $('.ot-nx-num', r).value });
+      });
+    }
     return f;
   }
 
@@ -211,14 +245,39 @@
     var m = modal();
     if (!m) return;
     $$('[data-nx-diet]', m).forEach(function (i) { i.checked = f.diet.indexOf(i.value) !== -1; });
+    $$('[data-nx-mode]', m).forEach(function (r) { r.checked = (r.value === f.mode); });
     $$('[data-nx-cmp]', m).forEach(function (r) { r.checked = (r.value === f.compare); });
     renderRows(f);
+    applyMode(f.mode);
     counts(f);
+  }
+
+  /* Show only the chosen mode's controls. The other group is hidden rather
+     than disabled: a dimmed group full of live-looking values is exactly the
+     ambiguity this change exists to remove. */
+  function applyMode(mode) {
+    var pairs = [
+      { mode: 'compare', btn: 'ot-nx-compare-button', grp: 'ot-nx-compare-group' },
+      { mode: 'number',  btn: 'ot-nx-number-button',  grp: 'ot-nx-number-group'  }
+    ];
+    pairs.forEach(function (p) {
+      var on = (mode === p.mode);
+      [p.btn, p.grp].forEach(function (id) {
+        var n = document.getElementById(id);
+        if (n) n.hidden = !on;
+      });
+    });
   }
 
   function commitFromDom() {
     var f = readDom();
     set(f);
+    /* ⛔ The mode has to be re-applied on every commit, not just on open.
+       commitFromDom() is what the mode radios fire, and without this the
+       state flipped correctly while the panel kept showing the old group —
+       the filter would have said one thing and shown another, which is the
+       exact failure this whole change is meant to remove. */
+    applyMode(f.mode);
     counts(f);
     renderChips(f);
   }
@@ -227,7 +286,11 @@
     var d = $('[data-test="ot-nx-diet-count"]');
     if (d) d.textContent = f.diet.length ? '(' + f.diet.length + ')' : '(all)';
     var n = $('[data-test="ot-nx-number-count"]');
-    var set_ = f.numbers.filter(function (x) { return x.v !== '' && x.v != null; }).length;
+    /* only the mode in force counts — a stale "(2)" from a previous session's
+       numbers, sitting above a compare target, is the old contradiction
+       leaking back out through the badge */
+    var live = (f.mode === 'number') ? f.numbers : [];
+    var set_ = live.filter(function (x) { return x.v !== '' && x.v != null; }).length;
     if (n) n.textContent = set_ ? '(' + set_ + ')' : '(all)';
   }
 
@@ -316,11 +379,64 @@
 
   /* ══ wiring ══════════════════════════════════════════════════════════════ */
 
+  /* ══ the mode switch ═════════════════════════════════════════════════════
+     Built here rather than written into _filter-markup.js, so that file stays
+     "the capture plus the two groups" and this one structural addition is
+     reviewable in a single place.
+     Placed ABOVE both groups because it governs both — and the label reuses
+     the deck's own phrase ("what you're going for") rather than inventing a
+     second vocabulary for the same idea. */
+  var MODES = [
+    { v: 'compare', t: 'Compared with how you usually eat out',
+      s: 'A target relative to your own history here' },
+    { v: 'number',  t: 'A number you set',
+      s: 'Calories, protein or carbs — your own limit' }
+  ];
+
+  function buildModeSwitch(m) {
+    if (document.getElementById('ot-nx-mode-group')) return;
+    var anchor = document.getElementById('ot-nx-compare-button');
+    if (!anchor || !anchor.parentNode) return;
+
+    /* a div, not a button: sections() selects `button.fsPHzMpMi90-`, and the
+       control that decides what the other sections DO must not itself be
+       collapsible. The class is reused only for the header's layout. */
+    var head = document.createElement('div');
+    head.className = 'fsPHzMpMi90- ot-nx-modehead';
+    head.innerHTML = '<div class="bSwSaaUFI34-">' +
+      '<h5 id="ot-nx-mode-name" class="Hl6ZEdQQYmo-">What you’re going for</h5></div>';
+
+    var ul = document.createElement('ul');
+    ul.id = 'ot-nx-mode-group';
+    ul.className = 'ml356-7yazQ-';
+    ul.setAttribute('role', 'radiogroup');
+    ul.setAttribute('aria-labelledby', 'ot-nx-mode-name');
+    ul.innerHTML = MODES.map(function (o) {
+      return '<li class="xNwEzpoJfLI-"><label class="ot-nx-radio">' +
+        '<input type="radio" name="ot-nx-mode" value="' + o.v + '" data-nx-mode="">' +
+        '<span class="ot-nx-dot" aria-hidden="true"></span>' +
+        '<span class="ot-nx-radio-label">' + o.t +
+        '<span class="ot-nx-sub">' + o.s + '</span></span></label></li>';
+    }).join('');
+
+    anchor.parentNode.insertBefore(head, anchor);
+    anchor.parentNode.insertBefore(ul, anchor);
+
+    /* "Or set a number" was the old model apologising for the conflict in
+       copy. The radio states it structurally now, so the word can go. */
+    var nh = document.getElementById('ot-nx-number-button-name');
+    if (nh && /^Or\s/.test(nh.textContent || '')) nh.textContent = 'Set a number';
+
+    $$('[data-nx-mode]', m).forEach(function (r) { r.onchange = commitFromDom; });
+  }
+
   function build() {
     if (built) return;
     var m = modal();
     if (!m) return;
     built = true;
+
+    buildModeSwitch(m);
 
     var g = numberGroup();
     if (g) {

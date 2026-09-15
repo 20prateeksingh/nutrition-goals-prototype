@@ -531,6 +531,26 @@
     });
   }
 
+  /* ── presentation trim ───────────────────────────────────────────────────
+     ⛔ NOT a design proposal, and worth being precise about that because it
+     subtracts from the captured product rather than adding to it. The
+     reservation card carries two things this module has no quarrel with — the
+     multi-day availability button and the "Booked N times today" social proof.
+     They are removed HERE, in the harness, purely so the composer sits in
+     frame during a walkthrough instead of below the fold.
+     The capture on disk is untouched and deleting this function restores the
+     page exactly. Scoped to #bookable-cta, so the identical social proof on
+     home and search result cards is left alone. */
+  function trimForDemo() {
+    var card = document.getElementById('bookable-cta');
+    if (!card) return;
+    var avail = card.querySelector('[data-test="multi-day-availability-button"]');
+    if (avail) (avail.parentElement || avail).remove();
+    [].forEach.call(card.querySelectorAll('span'), function (s) {
+      if (/^Booked \d+ times? today$/.test((s.textContent || '').trim())) s.remove();
+    });
+  }
+
   /* ── STEP 4 · the harness ──────────────────────────────────────────────── */
   function boot() {
     var style = document.createElement('style');
@@ -538,6 +558,7 @@
     style.textContent = CSS;
     document.head.appendChild(style);
 
+    trimForDemo();
     buildMenu();
     buildPanel();
     buildNoMenu();

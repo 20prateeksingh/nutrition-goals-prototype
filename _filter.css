@@ -397,3 +397,12 @@
    rather than loosening [hidden] across the whole host page.               */
 [data-test="restaurant-cards"][hidden],#ot-nx-noresults[hidden],#ot-nx-applied-chip[hidden],
 [data-nx-fit][hidden],[data-nx-row][hidden],.ml356-7yazQ-[hidden]{ display:none !important; }
+
+/* ══ the mode switch ══════════════════════════════════════════════════════════
+   The header for the radio group that decides which nutrition target is in
+   force. It borrows .fsPHzMpMi90- purely for the section-header layout, so the
+   two rules below take back what only a *button* should have: the pointer and
+   the full-width click target. Collapsing the control that governs the other
+   two sections would hide the reason they appear and disappear. */
+.ot-nx-modehead{ cursor:default; }
+.ot-nx-modehead:hover{ background:none; }

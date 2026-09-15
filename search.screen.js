@@ -305,10 +305,17 @@
 
   /* ── the walkthrough for this screen ─────────────────────────────────────── */
   if (window.NX.tour) NX.tour.define([
+    /* ⛔ Rewritten with the mode switch. The old copy said "you choose which
+       apply" and "the two nutrition sections are expanded" — both were true of
+       the model where a relative target and an absolute one could be set at
+       once. That model is gone, so the sentence describing it had to go too;
+       a walkthrough that narrates the previous build is worse than none. */
     { el: '[data-test="label-all-filters-button"]',
-      title: 'One combined filter, not two',
-      body: 'Dietary restrictions and numbers live in the same panel — you choose which apply. '
-          + 'It opens closed now, and only the two nutrition sections are expanded.' },
+      title: 'One filter, and one target at a time',
+      body: 'Dietary restrictions sit in the same panel as the nutrition target. '
+          + 'For the target you pick one way of saying it — measured against how you '
+          + 'usually eat out here, or a number you set — never both at once, because '
+          + 'two targets have no rule for which one wins.' },
     { el: '#ot-nx-applied-chip',
       title: 'Everything you asked for, in one chip',
       body: 'The chip states every criterion, not the first two — and the same state is what the '
